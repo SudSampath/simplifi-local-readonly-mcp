@@ -1,0 +1,16 @@
+{
+  // tsconfig.json builds src/ -> dist/ and so cannot also cover tests/ (rootDir
+  // is "src"). This config typechecks the tests without emitting, and `yarn
+  // check` runs both. Without it, test files would be the only unchecked
+  // TypeScript in the repo — which is exactly where a silent mistake hides.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "outDir": null,
+    "types": ["node"]
+  },
+  // scripts/ is listed explicitly rather than relying on tsc following imports
+  // from tests, so a tooling script that has no test yet is still typechecked.
+  "include": ["tests/**/*.ts", "scripts/**/*.ts", "vitest.config.ts", "src/**/*.ts", "src/**/*.d.ts"]
+}

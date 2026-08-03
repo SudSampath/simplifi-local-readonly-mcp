@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Refuses a commit that does not typecheck or does not pass the suite.
+#
+# Committed to the repo rather than written into .git/hooks so it is versioned
+# and reviewable. Enable it once per clone with:
+#
+#     npm run setup-hooks
+#
+# which points core.hooksPath at this directory.
+#
+# This is the local half of the BDD-to-publish rule. The other half is CI, which
+# runs the same two commands — so a bypassed hook (git commit --no-verify) is
+# still caught before merge.
+
+set -e
+
+# First, because it is the check whose failure is irreversible. A type error can
+# be fixed in the next commit; a real transaction committed to history cannot be
+# removed from every clone and every fork that already has it.
+echo "pre-commit: scanning staged changes for real financial data"
+npx tsx scripts/secret-scan.ts
+
+echo "pre-commit: typecheck"
+npm run typecheck
+
+echo "pre-commit: tests"
+npm test -- --run
+
+echo "pre-commit: ok"

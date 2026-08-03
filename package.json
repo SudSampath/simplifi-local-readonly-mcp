@@ -1,0 +1,35 @@
+{
+  "name": "quicken-simplifi-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.16.0",
+  "description": "Local, read-only MCP server for household finance data over stdio.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --pretty",
+    "start": "node dist/index.js",
+    "auth": "tsx src/auth.ts",
+    "typecheck": "tsc --noEmit --pretty && tsc -p tsconfig.test.json --pretty",
+    "test": "vitest",
+    "coverage": "vitest --run --coverage",
+    "setup-hooks": "git config core.hooksPath .githooks"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "better-sqlite3": "^13.0.2",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10"
+  }
+}

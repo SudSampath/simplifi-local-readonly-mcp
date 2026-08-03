@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is not optional here. The primary dev machine is Windows with no
+        # MSVC toolchain, and better-sqlite3's implicit node-gyp build fails there
+        # while succeeding silently on a Linux runner that happens to have a
+        # compiler. An earlier Linux-only matrix went green while a clean install on
+        # the machine this project is actually developed on was broken — so the
+        # platform that hides the problem cannot be the only one tested.
+        os: [ubuntu-latest, windows-latest]
+        # Both ends of the supported range in package.json engines.
+        node-version: ["22", "24"]
+    name: check (${{ matrix.os }}, node ${{ matrix.node-version }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it installs exactly the lockfile and
+      # fails if package.json and the lockfile disagree, which is the behavior we
+      # want gating a merge. It also respects .npmrc, so ignore-scripts applies and
+      # no node-gyp build is attempted.
+      - run: npm ci
+
+      # Proves the native binding loads from its shipped prebuild on this platform,
+      # before any test runs. Kept a separate step so a failure reads as an install
+      # problem rather than as a test failure.
+      - name: Verify the SQLite binding loads without a compiler
+        run: node -e "const D=require('better-sqlite3'); const d=new D(':memory:'); d.exec('create table t(a integer)'); d.prepare('insert into t values (?)').run(1); console.log('binding ok', JSON.stringify(d.prepare('select count(*) as c from t').get()));"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The same command the pre-commit hook runs, so `git commit --no-verify`
+      # is caught here rather than reaching main.
+      - name: Tests
+        run: npm test -- --run

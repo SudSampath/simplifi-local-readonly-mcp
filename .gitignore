@@ -1,0 +1,38 @@
+node_modules/
+dist/
+.DS_Store
+npm-debug.log*
+coverage/
+
+# Secrets. The only place credentials live is a .env the operator edits.
+.env
+.env.*
+!.env.example
+
+# The local cache of real transactions. Never in the repo, in any form.
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite.lock
+*.db
+*.db-shm
+*.db-wal
+*.db.lock
+
+# Exports. This is the reflex mistake the privacy rule exists to stop: dumping a
+# query to a file to eyeball it, then committing the directory it landed in.
+# Deliberately NOT a blanket *.json — that would hide package.json and
+# tsconfig.json — so data-shaped output is confined to these directories, and any
+# loose spreadsheet or delimited file is ignored outright.
+exports/
+out/
+tmp/
+scratch/
+*.csv
+*.tsv
+*.xlsx
+
+# Household-specific scanner configuration. Institution names live here, on the
+# operator's machine only, never in the repo. See scripts/secret-scan.ts.
+.secret-scan.local.json
