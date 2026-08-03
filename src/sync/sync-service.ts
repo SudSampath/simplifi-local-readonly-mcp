@@ -3,6 +3,7 @@ import { DatabaseContext } from "../db/database.js";
 import { logError, logInfo } from "../logger.js";
 import { nowIso } from "../utils.js";
 import { SimplifiClient } from "../simplifi/client.js";
+import { RefreshCoordinator } from "../runtime/refresh-coordinator.js";
 
 export interface SyncResult {
   /**
@@ -32,14 +33,16 @@ export class SyncService {
     private readonly config: AppConfig["simplifi"],
     private readonly db: DatabaseContext,
     private readonly client: SimplifiClient,
+    private readonly refreshCoordinator?: RefreshCoordinator,
   ) {}
 
+  public get canExplicitlyRefresh(): boolean {
+    return !this.db.readOnly || this.refreshCoordinator?.canRefresh === true;
+  }
+
   /**
-   * The refusal a reader returns from every sync entry point.
-   *
-   * Carried in the result rather than thrown. A tool call in a reader should
-   * still answer from the cache; what it must not do is present that answer as
-   * freshly synced.
+   * The refusal used by a standalone read-only database with no writer request
+   * channel. Stdio readers receive a RefreshCoordinator and delegate instead.
    */
   public static readonly READ_ONLY_REASON =
     "This instance is serving the cache read-only because another process holds the writer lease, so it cannot refresh from Simplifi. " +
@@ -110,7 +113,7 @@ export class SyncService {
   }
 
   public async ensureInitialized(): Promise<SyncResult> {
-    if (this.db.readOnly) {
+    if (this.db.readOnly && !this.refreshCoordinator?.canRefresh) {
       return this.readOnlyResult();
     }
 
@@ -123,7 +126,7 @@ export class SyncService {
   }
 
   public async ensureFresh(maxAgeMs: number): Promise<SyncResult> {
-    if (this.db.readOnly) {
+    if (this.db.readOnly && !this.refreshCoordinator?.canRefresh) {
       return this.readOnlyResult();
     }
 
@@ -144,16 +147,26 @@ export class SyncService {
   }
 
   public async syncFull(): Promise<SyncResult> {
-    if (this.db.readOnly) {
+    if (this.db.readOnly && !this.refreshCoordinator?.canRefresh) {
       return this.readOnlyResult();
+    }
+
+    if (this.refreshCoordinator) {
+      return this.refreshCoordinator.run("transactions-full", () => this.withLock(() => this.doFullSync()));
     }
 
     return this.withLock(() => this.doFullSync());
   }
 
   public async syncIncremental(): Promise<SyncResult> {
-    if (this.db.readOnly) {
+    if (this.db.readOnly && !this.refreshCoordinator?.canRefresh) {
       return this.readOnlyResult();
+    }
+
+    if (this.refreshCoordinator) {
+      return this.refreshCoordinator.run("transactions-incremental", () =>
+        this.withLock(() => this.doIncrementalSync()),
+      );
     }
 
     return this.withLock(() => this.doIncrementalSync());

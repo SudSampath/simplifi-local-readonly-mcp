@@ -31,6 +31,7 @@ const EXPECTED_TOOLS = [
   "list_uncategorized_transactions",
   "list_upcoming_bills",
   "monthly_burn",
+  "net_worth",
   "recurring_charge_changes",
   "search_categories",
   "search_merchants",

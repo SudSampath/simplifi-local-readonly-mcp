@@ -260,6 +260,12 @@ export interface ScheduledTransactionListResponse {
  * `CachedTransaction`: every money field becomes integer cents plus a formatted
  * string, so no caller receives a float it could sum.
  */
+export type AccountValueSource =
+  | "normalizedBalance"
+  | "onlineBalance"
+  | "currentBalanceAsOf"
+  | "balanceAsOf";
+
 export type CachedAccount = Omit<
   Account,
   | "balanceAsOf"
@@ -277,6 +283,10 @@ export type CachedAccount = Omit<
   id: string;
   type?: string;
   name?: string;
+  /** Canonical signed current value; liabilities are negative. */
+  valueCents?: number;
+  valueFormatted?: string;
+  valueSource?: AccountValueSource;
   balanceCents?: number;
   balanceFormatted?: string;
   currentBalanceCents?: number;

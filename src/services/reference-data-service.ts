@@ -3,22 +3,17 @@ import { DatabaseContext } from "../db/database.js";
 import { logError, logInfo } from "../logger.js";
 import { nowIso } from "../utils.js";
 import { SimplifiClient } from "../simplifi/client.js";
+import { RefreshCoordinator } from "../runtime/refresh-coordinator.js";
 
 export class ReferenceDataService {
   public constructor(
     private readonly config: AppConfig["simplifi"],
     private readonly db: DatabaseContext,
     private readonly client: SimplifiClient,
+    private readonly refreshCoordinator?: RefreshCoordinator,
   ) {}
 
   public async ensureCategoriesFresh(maxAgeMs: number): Promise<void> {
-    // A reader answers from whatever the writer last cached. Attempting the sync
-    // would fail at the first write anyway; declining here keeps the failure out
-    // of the request path entirely.
-    if (this.db.readOnly) {
-      return;
-    }
-
     const state = this.db.getReferenceSyncState();
     if (state.categoriesLastSyncAt) {
       const ageMs = Date.now() - new Date(state.categoriesLastSyncAt).getTime();
@@ -31,10 +26,6 @@ export class ReferenceDataService {
   }
 
   public async ensureTagsFresh(maxAgeMs: number): Promise<void> {
-    if (this.db.readOnly) {
-      return;
-    }
-
     const state = this.db.getReferenceSyncState();
     if (state.tagsLastSyncAt) {
       const ageMs = Date.now() - new Date(state.tagsLastSyncAt).getTime();
@@ -47,6 +38,19 @@ export class ReferenceDataService {
   }
 
   public async syncCategories(): Promise<void> {
+    if (this.db.readOnly && !this.refreshCoordinator?.canRefresh) {
+      throw new Error("This instance cannot refresh categories because it has no cache-writer coordinator.");
+    }
+
+    if (this.refreshCoordinator) {
+      await this.refreshCoordinator.run("categories", () => this.doSyncCategories());
+      return;
+    }
+
+    await this.doSyncCategories();
+  }
+
+  private async doSyncCategories(): Promise<void> {
     try {
       let nextLink: string | undefined;
       let total = 0;
@@ -85,6 +89,19 @@ export class ReferenceDataService {
   }
 
   public async syncTags(): Promise<void> {
+    if (this.db.readOnly && !this.refreshCoordinator?.canRefresh) {
+      throw new Error("This instance cannot refresh tags because it has no cache-writer coordinator.");
+    }
+
+    if (this.refreshCoordinator) {
+      await this.refreshCoordinator.run("tags", () => this.doSyncTags());
+      return;
+    }
+
+    await this.doSyncTags();
+  }
+
+  private async doSyncTags(): Promise<void> {
     try {
       let nextLink: string | undefined;
       let total = 0;

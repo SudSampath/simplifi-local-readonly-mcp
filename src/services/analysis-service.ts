@@ -110,7 +110,7 @@ export class AnalysisService {
     if (input.refresh) {
       // An analysis figure is exactly where a silently-stale refresh does the
       // most damage: the number looks current and nothing in it says otherwise.
-      if (this.db.readOnly) {
+      if (!this.syncService.canExplicitlyRefresh) {
         throw new Error(`${SyncService.READ_ONLY_REASON} Retry without refresh to accept the cached answer.`);
       }
 

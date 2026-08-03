@@ -176,7 +176,7 @@ export class TransactionToolService {
    * rather than quietly downgrading the request to a cached read.
    */
   public assertCanRefresh(): void {
-    if (this.db.readOnly) {
+    if (!this.syncService.canExplicitlyRefresh) {
       throw new Error(`${SyncService.READ_ONLY_REASON} Retry without refresh to accept the cached answer.`);
     }
   }

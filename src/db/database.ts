@@ -20,7 +20,7 @@ import type {
 } from "../types.js";
 import { decodeCursor, encodeCursor, nowIso } from "../utils.js";
 import { logInfo } from "../logger.js";
-import { formatCents, toCents } from "../money.js";
+import { asCents, formatCents, toCents } from "../money.js";
 import { resolveTransactionDate } from "../transaction-date.js";
 
 export interface TransactionQuery extends TransactionFilters {
@@ -83,6 +83,13 @@ export interface ReferenceSyncState {
   categoriesLastSyncAt?: string;
   tagsLastAsOf?: string;
   tagsLastSyncAt?: string;
+  lastError?: string;
+}
+
+export interface CollectionSyncState {
+  id: number;
+  accountsLastSyncAt?: string;
+  scheduledLastSyncAt?: string;
   lastError?: string;
 }
 
@@ -427,6 +434,17 @@ export class DatabaseContext {
         last_error TEXT
       );
       INSERT OR IGNORE INTO reference_sync_state (id) VALUES (1);
+
+      -- Complete collections need persistent freshness too. An in-memory mark
+      -- belongs to one stdio subprocess and is invisible to every other host;
+      -- storing it here lets a reader know whether to ask the writer to refresh.
+      CREATE TABLE IF NOT EXISTS collection_sync_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        accounts_last_sync_at TEXT,
+        scheduled_last_sync_at TEXT,
+        last_error TEXT
+      );
+      INSERT OR IGNORE INTO collection_sync_state (id) VALUES (1);
     `);
   }
 
@@ -984,6 +1002,56 @@ export class DatabaseContext {
       });
   }
 
+  public getCollectionSyncState(): CollectionSyncState {
+    const row = this.db
+      .prepare(
+        `
+          SELECT id, accounts_last_sync_at, scheduled_last_sync_at, last_error
+          FROM collection_sync_state
+          WHERE id = 1
+        `,
+      )
+      .get() as
+      | {
+          id: number;
+          accounts_last_sync_at: string | null;
+          scheduled_last_sync_at: string | null;
+          last_error: string | null;
+        }
+      | undefined;
+
+    if (!row) {
+      return { id: 1 };
+    }
+
+    return {
+      id: row.id,
+      accountsLastSyncAt: row.accounts_last_sync_at ?? undefined,
+      scheduledLastSyncAt: row.scheduled_last_sync_at ?? undefined,
+      lastError: row.last_error ?? undefined,
+    };
+  }
+
+  public updateCollectionSyncState(patch: Partial<CollectionSyncState>): void {
+    const next: CollectionSyncState = { ...this.getCollectionSyncState(), ...patch, id: 1 };
+    this.db
+      .prepare(
+        `
+          UPDATE collection_sync_state
+          SET
+            accounts_last_sync_at = @accountsLastSyncAt,
+            scheduled_last_sync_at = @scheduledLastSyncAt,
+            last_error = @lastError
+          WHERE id = 1
+        `,
+      )
+      .run({
+        accountsLastSyncAt: next.accountsLastSyncAt ?? null,
+        scheduledLastSyncAt: next.scheduledLastSyncAt ?? null,
+        lastError: next.lastError ?? null,
+      });
+  }
+
   public upsertCategories(categories: Category[]): void {
     if (categories.length === 0) {
       return;
@@ -1380,17 +1448,29 @@ export class DatabaseContext {
     const cents = (value: unknown): number | undefined => (typeof value === "number" ? toCents(value) : undefined);
     const balanceCents = cents(balanceAsOf);
     const statementDueAmountCents = cents(statementDueAmount);
+    const valueCandidate = (
+      [
+        ["normalizedBalance", normalizedBalance],
+        ["onlineBalance", onlineBalance],
+        ["currentBalanceAsOf", currentBalanceAsOf],
+        ["balanceAsOf", balanceAsOf],
+      ] as const
+    ).find((candidate) => typeof candidate[1] === "number");
+    const valueCents = valueCandidate ? cents(valueCandidate[1]) : undefined;
 
     return {
       ...rest,
+      valueCents,
+      valueFormatted: valueCents === undefined ? undefined : formatCents(asCents(valueCents)),
+      valueSource: valueCandidate?.[0],
       balanceCents,
-      balanceFormatted: balanceCents === undefined ? undefined : formatCents(balanceCents as never),
+      balanceFormatted: balanceCents === undefined ? undefined : formatCents(asCents(balanceCents)),
       currentBalanceCents: cents(currentBalanceAsOf),
       onlineBalanceCents: cents(onlineBalance),
       creditLimitCents: cents(creditLimit),
       statementDueAmountCents,
       statementDueAmountFormatted:
-        statementDueAmountCents === undefined ? undefined : formatCents(statementDueAmountCents as never),
+        statementDueAmountCents === undefined ? undefined : formatCents(asCents(statementDueAmountCents)),
       statementMinPaymentCents: cents(statementMinPayment),
       statementPastDueAmountCents: cents(statementPastDueAmount),
       statementCloseBalanceCents: cents(statementCloseBalance),

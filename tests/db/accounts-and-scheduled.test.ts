@@ -104,6 +104,46 @@ describe("Given accounts synced from Simplifi", () => {
       expect(db.listAccounts({ type: "credit" }).map((a) => a.id)).toEqual(["a-credit"]);
     });
   });
+
+  test("When balance variants disagree, then the canonical current value follows the documented precedence", () => {
+    withDb((db) => {
+      db.replaceAccounts([
+        anAccount({
+          id: "all-fields",
+          normalizedBalance: 10.01,
+          onlineBalance: 20.02,
+          currentBalanceAsOf: 30.03,
+          balanceAsOf: 40.04,
+        }),
+        anAccount({ id: "online", onlineBalance: 20.02, currentBalanceAsOf: 30.03, balanceAsOf: 40.04 }),
+        anAccount({ id: "current", currentBalanceAsOf: 30.03, balanceAsOf: 40.04 }),
+        anAccount({ id: "balance", balanceAsOf: 40.04 }),
+      ]);
+
+      const accounts = Object.fromEntries(db.listAccounts().map((account) => [account.id, account]));
+
+      expect(accounts["all-fields"]).toMatchObject({
+        valueCents: 1_001,
+        valueFormatted: "10.01",
+        valueSource: "normalizedBalance",
+      });
+      expect(accounts.online).toMatchObject({ valueCents: 2_002, valueSource: "onlineBalance" });
+      expect(accounts.current).toMatchObject({ valueCents: 3_003, valueSource: "currentBalanceAsOf" });
+      expect(accounts.balance).toMatchObject({ valueCents: 4_004, valueSource: "balanceAsOf" });
+    });
+  });
+
+  test("When normalized balance is zero, then zero is a value rather than a missing field", () => {
+    withDb((db) => {
+      db.replaceAccounts([anAccount({ id: "zero", normalizedBalance: 0, onlineBalance: 99 })]);
+
+      expect(db.listAccounts()[0]).toMatchObject({
+        valueCents: 0,
+        valueFormatted: "0.00",
+        valueSource: "normalizedBalance",
+      });
+    });
+  });
 });
 
 describe("Given scheduled transactions synced from Simplifi", () => {
