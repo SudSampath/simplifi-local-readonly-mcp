@@ -12,6 +12,7 @@ import { SimplifiAuthService } from "../simplifi/auth-service.js";
 import { SimplifiClient } from "../simplifi/client.js";
 import { SyncService } from "../sync/sync-service.js";
 import { CacheLease } from "./cache-lease.js";
+import { RefreshCoordinator, type RefreshKind } from "./refresh-coordinator.js";
 
 /**
  * Runs exactly one local MCP server over the current process' stdio streams.
@@ -26,10 +27,11 @@ export async function runStdioServer(config: AppConfig): Promise<void> {
   // tools are simply absent looks broken from the inside.
   const lease = CacheLease.acquire(config.cache.dbPath);
   const db = new DatabaseContext(config.cache.dbPath, { readOnly: lease.role === "reader" });
+  const refreshCoordinator = new RefreshCoordinator(config.cache.dbPath, lease.role, lease.writerPid);
   const authService = new SimplifiAuthService(config.simplifi, db);
   const simplifiClient = new SimplifiClient(config.simplifi, authService);
-  const syncService = new SyncService(config.simplifi, db, simplifiClient);
-  const referenceDataService = new ReferenceDataService(config.simplifi, db, simplifiClient);
+  const syncService = new SyncService(config.simplifi, db, simplifiClient, refreshCoordinator);
+  const referenceDataService = new ReferenceDataService(config.simplifi, db, simplifiClient, refreshCoordinator);
   const toolService = new TransactionToolService(
     db,
     syncService,
@@ -37,10 +39,18 @@ export async function runStdioServer(config: AppConfig): Promise<void> {
     referenceDataService,
     config.simplifi.maxStaleMs,
   );
-  const accountService = new AccountService(db, simplifiClient);
+  const accountService = new AccountService(db, simplifiClient, refreshCoordinator);
   const analysisService = new AnalysisService(db, syncService, referenceDataService, config.simplifi.maxStaleMs);
   const server = createMcpServer(toolService, accountService, analysisService, config.simplifi.maxStaleMs);
   const transport = new StdioServerTransport();
+  const refreshHandlers: Record<RefreshKind, () => Promise<unknown>> = {
+    "transactions-full": () => syncService.syncFull(),
+    "transactions-incremental": () => syncService.syncIncremental(),
+    accounts: () => accountService.syncAccounts(),
+    "scheduled-transactions": () => accountService.syncScheduledTransactions(),
+    categories: () => referenceDataService.syncCategories(),
+    tags: () => referenceDataService.syncTags(),
+  };
   const stopProcess = (reason: string) => {
     void shutdown(reason).finally(() => {
       // A background sync interval keeps Node alive after the embedding host has
@@ -70,6 +80,7 @@ export async function runStdioServer(config: AppConfig): Promise<void> {
     void (async () => {
       try {
         logInfo("Stopping household-finance-mcp", { reason });
+        refreshCoordinator.stop();
         syncService.stop();
         process.stdin.off("end", onStdinEnd);
         await server.close();
@@ -105,6 +116,7 @@ export async function runStdioServer(config: AppConfig): Promise<void> {
     // to complete MCP initialization without making a network request; tool calls
     // retain their existing freshness checks and trigger sync when data is needed.
     syncService.start();
+    refreshCoordinator.start(refreshHandlers);
     logInfo("household-finance-mcp ready on stdio", {
       role: lease.role,
       ...(lease.role === "reader"

@@ -191,7 +191,7 @@ export function createMcpServer(
 
   mcp.tool(
     "list_accounts",
-    "List your Simplifi accounts with balances, from the local cache. Money is integer cents in *Cents fields; the *Formatted strings are for display only.",
+    "List your Simplifi accounts with balances, from the local cache. valueCents is the canonical signed current value and valueSource identifies its source; other *Cents fields preserve raw balance variants. The *Formatted strings are for display only.",
     {
       includeClosed: z.boolean().optional(),
       type: z.enum(["BANK", "CREDIT", "INVESTMENT", "LOAN", "VEHICLE", "REAL_ESTATE"]).optional(),
@@ -205,6 +205,20 @@ export function createMcpServer(
       }
       const accounts = accountService.listAccounts(input ?? {});
       return toToolResponse({ total: accounts.length, accounts });
+    },
+  );
+
+  mcp.tool(
+    "net_worth",
+    "Calculate current net worth from canonical signed account values. Returns every included account and every exclusion so the total is traceable. Closed, ignored, and valueless accounts are excluded.",
+    { refresh: z.boolean().optional() },
+    async (input: any) => {
+      if (input?.refresh) {
+        await accountService.syncAccounts();
+      } else {
+        await accountService.ensureAccountsFresh(maxStaleMs);
+      }
+      return toToolResponse(accountService.netWorth());
     },
   );
 
