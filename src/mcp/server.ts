@@ -18,7 +18,7 @@ export function createMcpServer(
   maxStaleMs: number,
 ): McpServer {
   const server = new McpServer({
-    name: "household-finance-mcp",
+    name: "simplifi-local-readonly-mcp",
     version: "0.1.0",
   });
   const mcp = server as any;

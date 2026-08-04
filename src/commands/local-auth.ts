@@ -19,7 +19,7 @@ export async function runLocalAuth(config: AppConfig, terminal: AuthTerminal): P
   if (lease.role === "reader") {
     lease.release();
     throw new Error(
-      `Cannot sign in while another household-finance-mcp process holds the cache${lease.writerPid === undefined ? "" : ` (process ${lease.writerPid})`}. ` +
+      `Cannot sign in while another simplifi-local-readonly-mcp process holds the cache${lease.writerPid === undefined ? "" : ` (process ${lease.writerPid})`}. ` +
         `Signing in stores a token in the cache, which only one process may write. Close the other one and try again — ` +
         `in an editor that runs this as an MCP server, that means quitting the editor, not just the session.`,
     );

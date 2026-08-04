@@ -50,7 +50,7 @@ describe("Given an operator running the local auth command", () => {
       // command exists to write a token. Running the login and discarding the
       // result at the last step would waste an MFA challenge.
       await expect(runLocalAuth({ cache: { dbPath }, simplifi: SYNTHETIC_SIMPLIFI_CONFIG }, fakeTerminal())).rejects.toThrow(
-        /cannot sign in while another household-finance-mcp process holds the cache/i,
+        /cannot sign in while another simplifi-local-readonly-mcp process holds the cache/i,
       );
       await expect(runLocalAuth({ cache: { dbPath }, simplifi: SYNTHETIC_SIMPLIFI_CONFIG }, fakeTerminal())).rejects.toThrow(
         new RegExp(String(process.pid)),

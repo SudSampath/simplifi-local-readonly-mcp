@@ -79,7 +79,7 @@ export async function runStdioServer(config: AppConfig): Promise<void> {
 
     void (async () => {
       try {
-        logInfo("Stopping household-finance-mcp", { reason });
+        logInfo("Stopping simplifi-local-readonly-mcp", { reason });
         refreshCoordinator.stop();
         syncService.stop();
         process.stdin.off("end", onStdinEnd);
@@ -117,7 +117,7 @@ export async function runStdioServer(config: AppConfig): Promise<void> {
     // retain their existing freshness checks and trigger sync when data is needed.
     syncService.start();
     refreshCoordinator.start(refreshHandlers);
-    logInfo("household-finance-mcp ready on stdio", {
+    logInfo("simplifi-local-readonly-mcp ready on stdio", {
       role: lease.role,
       ...(lease.role === "reader"
         ? {
