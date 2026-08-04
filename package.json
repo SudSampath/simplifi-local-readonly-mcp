@@ -1,7 +1,6 @@
 {
   "name": "simplifi-local-readonly-mcp",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "packageManager": "npm@11.16.0",
   "description": "Unofficial local, read-only MCP server for Quicken Simplifi data over stdio.",
@@ -10,6 +9,15 @@
     "type": "git",
     "url": "https://github.com/SudSampath/simplifi-local-readonly-mcp.git"
   },
+  "bin": {
+    "simplifi-local-readonly-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    ".env.example",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc --pretty",
@@ -18,7 +26,8 @@
     "typecheck": "tsc --noEmit --pretty && tsc -p tsconfig.test.json --pretty",
     "test": "vitest",
     "coverage": "vitest --run --coverage",
-    "setup-hooks": "git config core.hooksPath .githooks"
+    "setup-hooks": "git config core.hooksPath .githooks",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=22"
