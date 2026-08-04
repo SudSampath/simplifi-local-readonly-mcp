@@ -1,3 +1,7 @@
+#!/usr/bin/env node
+// The shebang is required for the `bin` entry: npm links dist/index.js onto
+// PATH, and without it the shell executes the file rather than handing it to
+// node. tsc preserves a leading shebang in the emitted output.
 import { ConfigurationError, loadConfig } from "./config.js";
 import { logError } from "./logger.js";
 import { runStdioServer } from "./runtime/stdio-server.js";
