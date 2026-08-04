@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -14,7 +15,37 @@ import dotenv from "dotenv";
  */
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-dotenv.config({ path: path.join(PACKAGE_ROOT, ".env") });
+/**
+ * Where `.env` and the cache live.
+ *
+ * Resolving these against PACKAGE_ROOT is right for a clone and wrong for an
+ * install: `npx` and `npm i -g` place the package under a managed directory
+ * that npm may prune, so a cache written there is silently discarded and a
+ * `.env` cannot reasonably be put there by hand in the first place.
+ *
+ * Order:
+ *   1. SIMPLIFI_MCP_HOME  — explicit wins, and makes the location testable.
+ *   2. ~/.simplifi-local-readonly-mcp  — when running from inside node_modules.
+ *   3. PACKAGE_ROOT — a clone, which keeps existing setups working unchanged.
+ */
+function resolveHome(): string {
+  const explicit = process.env.SIMPLIFI_MCP_HOME?.trim();
+  if (explicit) {
+    return path.resolve(explicit);
+  }
+
+  // `sep` on both sides so a directory merely *named* "node_modules-ish"
+  // does not match, and so a clone at a path containing the word does not
+  // get mistaken for an install.
+  const installed = PACKAGE_ROOT.split(path.sep).includes("node_modules");
+  return installed
+    ? path.join(os.homedir(), ".simplifi-local-readonly-mcp")
+    : PACKAGE_ROOT;
+}
+
+export const MCP_HOME = resolveHome();
+
+dotenv.config({ path: path.join(MCP_HOME, ".env") });
 
 export interface AppConfig {
   cache: {
@@ -69,7 +100,7 @@ function assertRequiredEnv(): void {
   const lines = [
     `Missing required configuration: ${missing.join(", ")}.`,
     "",
-    `Copy .env.example to .env in ${PACKAGE_ROOT}, then set ${
+    `Copy .env.example to .env in ${MCP_HOME}, then set ${
       missing.length === 1 ? "that value" : "those values"
     }.`,
   ];
@@ -126,7 +157,7 @@ export function loadConfig(): AppConfig {
   // Relative to the installation, not the caller. Two hosts spawning this server
   // from different directories must reach the same cache and therefore the same
   // stored tokens, or each one silently starts empty and re-syncs.
-  const cacheDbPath = path.resolve(PACKAGE_ROOT, process.env.CACHE_DB_PATH ?? "./data/cache.sqlite");
+  const cacheDbPath = path.resolve(MCP_HOME, process.env.CACHE_DB_PATH ?? "./data/cache.sqlite");
 
   return {
     cache: {
