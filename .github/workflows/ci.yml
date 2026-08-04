@@ -52,3 +52,52 @@ jobs:
       # is caught here rather than reaching main.
       - name: Tests
         run: npm test -- --run
+
+  # The hook's first and most important check, which CI did not run.
+  #
+  # `npm run setup-hooks` is opt-in and per-clone, and hooks never run for a
+  # pull request from a fork, so the privacy guardrail the README advertises as
+  # running in CI was in practice advisory. A type error can be fixed in the
+  # next commit; real financial data reaching a public history cannot be removed
+  # from every clone and fork that already has it.
+  #
+  # Separate from the matrix on purpose: the rules are platform-independent, so
+  # running it four times would only slow the merge.
+  secret-scan:
+    runs-on: ubuntu-latest
+    name: secret-scan
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The scan diffs a commit range, so the default shallow clone is not
+          # enough — the base commit has to exist locally.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # The hook scans the index. Nothing is staged here, so CI passes an
+      # explicit range instead; without one the diff is empty and the scan
+      # reports success having examined nothing.
+      - name: Determine the range to scan
+        id: range
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif git cat-file -e "${{ github.event.before }}^{commit}" 2>/dev/null; then
+            range="${{ github.event.before }}..${{ github.sha }}"
+          else
+            # A first push, or a force-push whose prior tip is gone. Scan the
+            # head commit alone rather than silently scanning nothing.
+            range="${{ github.sha }}^..${{ github.sha }}"
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+          echo "scanning $range"
+
+      - name: Scan added lines for real financial data
+        run: npx tsx scripts/secret-scan.ts "${{ steps.range.outputs.range }}"
