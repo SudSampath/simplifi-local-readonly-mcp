@@ -9,7 +9,18 @@ import { formatFindings, scanText } from "../../scripts/secret-scan.js";
  * someone reading a pull request check log names the wrong thing to go fix.
  */
 
-const LEAK = "const account = 4147202233445566;";
+/**
+ * Assembled at runtime rather than written as a literal.
+ *
+ * A 16-digit run in this file's source would be flagged twice over — by the
+ * whole-tree check in `tests/conventions/no-real-data-committed.test.ts` and by
+ * the diff scan in CI — and clearing that needs an entry in `ALLOWANCES` with a
+ * pinned digest. `tests/scripts/secret-scan.test.ts` rightly carries those,
+ * because it exercises rule boundaries and needs real literals. This file only
+ * needs one leak-shaped value to check how a report is worded, so it does not
+ * earn a permanent exception on a list that exists to be audited.
+ */
+const LEAK = `const account = ${["4147", "2022", "3344", "5566"].join("")};`;
 
 describe("Given findings reported from the pre-commit hook", () => {
   test("When they are formatted with no subject, then the index is named", () => {
