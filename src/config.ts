@@ -37,10 +37,58 @@ export interface AppConfig {
   };
 }
 
+/**
+ * A setup mistake rather than a bug. Callers print `message` and stop; they must
+ * not print a stack, because the trace points into this file and tells the
+ * person reading it nothing about the `.env` they still have to write.
+ */
+export class ConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigurationError";
+  }
+}
+
+/** The variables only the operator can supply. Everything else has a default. */
+const REQUIRED_ENV = ["SIMPLIFI_EMAIL", "SIMPLIFI_PASSWORD", "SIMPLIFI_DATASET_ID"] as const;
+
+/**
+ * Reports every missing variable at once.
+ *
+ * Checking them one at a time — which is what happens when each `getEnv` throws
+ * on its own — makes first-time setup a sequence of run, read, fix, run again,
+ * once per variable. There are three, and the third is the one that takes real
+ * effort to find, so it is the one a user reaches last and slowest.
+ */
+function assertRequiredEnv(): void {
+  const missing = REQUIRED_ENV.filter((name) => (process.env[name] ?? "").trim() === "");
+  if (missing.length === 0) {
+    return;
+  }
+
+  const lines = [
+    `Missing required configuration: ${missing.join(", ")}.`,
+    "",
+    `Copy .env.example to .env in ${PACKAGE_ROOT}, then set ${
+      missing.length === 1 ? "that value" : "those values"
+    }.`,
+  ];
+  if (missing.includes("SIMPLIFI_DATASET_ID")) {
+    lines.push(
+      "",
+      "SIMPLIFI_DATASET_ID is not shown anywhere in the Simplifi UI. Sign in at",
+      "https://simplifi.quicken.com, open developer tools, and read the",
+      "qcs-dataset-id request header from any call to services.quicken.com.",
+      'See "Finding your SIMPLIFI_DATASET_ID" in the README.',
+    );
+  }
+  throw new ConfigurationError(lines.join("\n"));
+}
+
 function getEnv(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
   if (value === undefined || value.trim() === "") {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new ConfigurationError(`Missing required environment variable: ${name}`);
   }
   return value;
 }
@@ -73,6 +121,8 @@ function getNumberEnv(name: string, fallback: number): number {
 }
 
 export function loadConfig(): AppConfig {
+  assertRequiredEnv();
+
   // Relative to the installation, not the caller. Two hosts spawning this server
   // from different directories must reach the same cache and therefore the same
   // stored tokens, or each one silently starts empty and re-syncs.
