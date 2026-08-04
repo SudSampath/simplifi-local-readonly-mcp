@@ -436,8 +436,8 @@ export function scanUnifiedDiff(diff: string, options: ScanOptions = {}): Findin
   return findings;
 }
 
-export function formatFindings(findings: Finding[]): string {
-  const lines = ["", "Commit rejected: staged changes look like they contain our real financial data.", ""];
+export function formatFindings(findings: Finding[], subject = "staged changes"): string {
+  const lines = ["", `Rejected: ${subject} look like they contain our real financial data.`, ""];
 
   for (const finding of findings) {
     lines.push(`  ${finding.file}:${finding.line}  [${finding.rule}] ${finding.detail}`);
@@ -456,11 +456,20 @@ export function formatFindings(findings: Finding[]): string {
 function main(): void {
   // -U0 keeps the diff to added lines only, with no surrounding context to
   // re-flag content that is already committed.
-  const diff = execFileSync("git", ["diff", "--cached", "-U0"], { encoding: "utf8" });
+  //
+  // With no argument this scans the index, which is what the pre-commit hook
+  // wants. CI has nothing staged, so it passes a commit range instead — without
+  // one the diff there is empty and the scan reports success having examined
+  // nothing, which is worse than not running it at all.
+  const range = process.argv[2];
+  const args = range === undefined ? ["diff", "--cached", "-U0"] : ["diff", range, "-U0"];
+  const subject = range === undefined ? "staged changes" : `changes in ${range}`;
+
+  const diff = execFileSync("git", args, { encoding: "utf8" });
   const findings = scanUnifiedDiff(diff);
 
   if (findings.length > 0) {
-    process.stderr.write(formatFindings(findings));
+    process.stderr.write(formatFindings(findings, subject));
     process.exit(1);
   }
 }
