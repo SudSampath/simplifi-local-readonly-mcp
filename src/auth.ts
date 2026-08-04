@@ -1,3 +1,9 @@
+#!/usr/bin/env node
+// Required by the `bin` entry, same as src/index.ts: npm links this onto PATH,
+// and without the shebang the shell executes the file rather than handing it to
+// node. Authentication has to be reachable from an installed package — it is
+// mandatory before the server can do anything, and `npm run auth` only exists
+// inside a clone.
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 

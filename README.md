@@ -25,9 +25,9 @@ This version makes different choices:
   listener. Your MCP host starts it as a local child process.
 - **Read-only by construction.** The source contains no transaction-update or
   categorisation tools, and the Simplifi client has no write request path.
-- **Operator-only authentication.** `npm run auth` is the one terminal command
-  that can perform first login and handle MFA. MCP tools cannot trigger login,
-  submit an MFA code, or wait for a TTY.
+- **Operator-only authentication.** A single terminal command performs first
+  login and handles MFA. MCP tools cannot trigger login, submit an MFA code, or
+  wait for a TTY.
 - **Local data ownership.** Credentials, tokens, and cached transactions stay
   in your local `.env` and SQLite cache. They are ignored by Git.
 - **Guardrails that run in CI.** Tests enforce the read-only boundary, use only
@@ -96,16 +96,70 @@ figure an assistant reports back to you can be checked against the source rows.
 
 ## Setup
 
-### 1. Install and configure
+### 1. Install
+
+**Clone and build** — this is the path that works today:
 
 ```bash
+git clone https://github.com/SudSampath/simplifi-local-readonly-mcp.git
+cd simplifi-local-readonly-mcp
 npm install
+npm run build
+```
+
+Worth doing regardless: reading the code before handing it your banking
+credentials is a reasonable thing to want, and this is a small enough project to
+actually do it.
+
+**Installing from npm** is supported by the package, but nothing is published
+yet — `npm install -g simplifi-local-readonly-mcp` will not resolve until a
+release exists. Once it does, it puts two commands on your PATH,
+`simplifi-local-readonly-mcp` (the server) and `simplifi-local-readonly-mcp-auth`
+(the one-time login), with nothing to build.
+
+Installing straight from GitHub does **not** work, and deliberately so: this
+project sets `ignore-scripts=true` so that `better-sqlite3` uses its shipped
+prebuilt binary instead of attempting a `node-gyp` build, and that same setting
+stops npm from building `dist/` during a git install.
+
+### 2. Create your `.env`
+
+Where this file goes depends on how you installed:
+
+| How you installed | Where `.env` and the cache live |
+| --- | --- |
+| Installed as a package | `~/.simplifi-local-readonly-mcp/` |
+| Cloned the repository | the repository directory |
+| Either, with `SIMPLIFI_MCP_HOME` set | wherever that points |
+
+An installed package lives under a directory npm manages and may prune, so
+configuration and cached data are deliberately kept outside it — otherwise your
+cache would vanish on an unrelated `npm` operation.
+
+If you installed the package, create that directory and copy the template into
+it:
+
+```bash
+mkdir -p ~/.simplifi-local-readonly-mcp
+cp "$(dirname "$(readlink -f "$(which simplifi-local-readonly-mcp)")")/../.env.example" \
+   ~/.simplifi-local-readonly-mcp/.env
+```
+
+If that path lookup is awkward on your system, just create
+`~/.simplifi-local-readonly-mcp/.env` by hand — the variables are listed below,
+and anything you omit is reported by name on first run.
+
+If you cloned, copy it in place:
+
+```bash
 cp .env.example .env
 ```
 
 On PowerShell, use `Copy-Item .env.example .env`.
 
-### 2. Fill in `.env`
+Set `SIMPLIFI_MCP_HOME` to override the location in either case.
+
+### 3. Fill in `.env`
 
 Three values are yours and must be set:
 
@@ -137,7 +191,15 @@ and does not display it in the UI. To read it off a live session:
 
 Paste it into `.env` as `SIMPLIFI_DATASET_ID`.
 
-### 3. Authenticate once, in a terminal
+### 4. Authenticate once, in a terminal
+
+If you installed the package:
+
+```bash
+simplifi-local-readonly-mcp-auth
+```
+
+If you cloned:
 
 ```bash
 npm run auth
@@ -149,20 +211,30 @@ access and refresh tokens in the local cache.
 This is the only command that can log in. The MCP server uses stored tokens
 only — it never falls back to a password login and never prompts through stdio,
 so an unattended sync can't trigger an MFA request or a login attempt. If a
-token expires or is revoked, tools return an error telling you to run
-`npm run auth` again.
-
-### 4. Build
-
-```bash
-npm run build
-```
+token expires or is revoked, tools return an error telling you to run it again.
 
 ### 5. Connect your MCP host
 
-The server runs as a local subprocess. Use an **absolute path** to
-`dist/index.js` — relative paths will not resolve, because your MCP host does
-not start in this directory.
+The server runs as a local subprocess.
+
+**If you installed the package**, point your host at the command name:
+
+```json
+{
+  "mcpServers": {
+    "simplifi": {
+      "command": "simplifi-local-readonly-mcp"
+    }
+  }
+}
+```
+
+Some hosts do not resolve PATH the way your shell does. If the server does not
+start, use the absolute path that `which simplifi-local-readonly-mcp` (or
+`Get-Command` on PowerShell) reports.
+
+**If you cloned**, use an **absolute path** to `dist/index.js`. Relative paths
+will not resolve, because your MCP host does not start in that directory.
 
 **Claude Desktop** — edit `claude_desktop_config.json`
 (macOS: `~/Library/Application Support/Claude/`,
@@ -194,10 +266,12 @@ is involved.
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Tools report expired or revoked credentials | Run `npm run auth` again in a terminal. The server cannot re-authenticate on its own by design. |
+| Tools report expired or revoked credentials | Run the auth command again in a terminal (`simplifi-local-readonly-mcp-auth`, or `npm run auth` in a clone). The server cannot re-authenticate on its own by design. |
 | `Cannot sign in while another process holds the cache` | One process at a time may write the cache. Quit the MCP host (or the other terminal) and retry. |
 | Authentication fails repeatedly with valid credentials | Confirm `SIMPLIFI_DATASET_ID` is correct. If it still fails, capture a real `SIMPLIFI_THREAT_METRIX_SESSION_ID` the same way you found the dataset id. |
-| Host shows no tools | Check the path in your host config is absolute and points at `dist/index.js`, and that `npm run build` has been run. |
+| Host shows no tools | Installed: your host may not resolve PATH — use the absolute path from `which simplifi-local-readonly-mcp`. Cloned: check the path is absolute, points at `dist/index.js`, and that `npm run build` has been run. |
+| Config seems to be ignored | The server reads `.env` from its home directory, not your working directory. Run the server with no configuration and it prints the exact path it is looking in. Set `SIMPLIFI_MCP_HOME` to point somewhere else. |
+| Cached data disappears between runs | You are probably running via `npx`, which re-fetches into a temporary directory. Install with `npm install -g`, or set `SIMPLIFI_MCP_HOME` to a stable path. |
 | Empty or stale results | The first query performs a full sync and can take a while. Most tools accept `refresh: true` to force a re-sync. The exceptions are `spending_by_category`, `monthly_burn`, `recurring_charge_changes`, and `search_merchants`, which read whatever the cache already holds — call a tool that does accept `refresh` first if you need those recomputed against fresh data. |
 
 ## Safety model

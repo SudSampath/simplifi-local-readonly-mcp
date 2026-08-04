@@ -10,7 +10,8 @@
     "url": "https://github.com/SudSampath/simplifi-local-readonly-mcp.git"
   },
   "bin": {
-    "simplifi-local-readonly-mcp": "dist/index.js"
+    "simplifi-local-readonly-mcp": "dist/index.js",
+    "simplifi-local-readonly-mcp-auth": "dist/auth.js"
   },
   "files": [
     "dist",
