@@ -61,7 +61,7 @@ function textFromRepo(relativePath: string): string {
   return readFileSync(path.join(REPO_ROOT, relativePath), "utf8");
 }
 
-describe("Given the built household-finance-mcp subprocess", () => {
+describe("Given the built simplifi-local-readonly-mcp subprocess", () => {
   test("When a host connects over stdio, then it completes an MCP handshake and lists the read-only tools", async () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "hfm-stdio-"));
     const cachePath = path.join(directory, "cache.sqlite");
