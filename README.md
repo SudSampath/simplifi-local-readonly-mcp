@@ -39,86 +39,166 @@ or need to edit transactions, this project is not the right tool.
 
 ## What it can do
 
-All MCP tools are reads:
+All 17 MCP tools are reads. Nothing here can create, modify, or delete a record.
 
-- `list_transactions`, `search_transactions`, and `get_transaction`
-- `list_uncategorized_transactions`
-- `search_merchants`
-- `list_categories` and `search_categories`
-- `list_tags` and `search_tags`
-- `suggest_categories_for_merchant`
+**Accounts and balances**
 
-The server keeps an incremental local cache of transactions, categories, and
-tags. The first query that needs data performs a full sync; later queries use
-fresh cached data and sync as needed.
+| Tool | What it returns |
+| --- | --- |
+| `list_accounts` | Accounts with balances. `valueCents` is the canonical signed current value and `valueSource` identifies where it came from; other `*Cents` fields preserve raw balance variants, and `*Formatted` strings are display-only. |
+| `net_worth` | Current net worth from canonical signed account values. Returns every included account **and every exclusion**, so the total is traceable. Closed, ignored, and valueless accounts are excluded. |
 
-## How authentication works
+**Spending analysis**
 
-1. Copy `.env.example` to `.env` and set the required Simplifi values.
-2. Run `npm run auth` directly in a terminal. If Simplifi asks for MFA, enter
-   the code there.
-3. The command stores access and refresh tokens in the local cache.
-4. Start the MCP server. It uses stored tokens only; it never falls back to a
-   password login or prompts through stdio.
+| Tool | What it returns |
+| --- | --- |
+| `spending_by_category` | Spending by category by calendar month, with the transaction ids behind every figure. Transfers, balance adjustments, investment activity, and future-dated projections are excluded and reported separately. Defaults to the last twelve months. |
+| `monthly_burn` | Money out, money in, and the net by month, with the transaction ids behind every figure. The average covers complete months only — a month still in progress is reported as incomplete and left out of it. |
+| `recurring_charge_changes` | Recurring charges whose amount changed, largest rise first, with the transactions evidencing the old and new amounts. Groups outflows by merchant and infers cadence from spacing. Merchants that cost something different every time are listed separately rather than reported as changes. |
 
-If a token is expired or revoked, the server explains that you need to run
-`npm run auth` again. This avoids unattended background syncs requesting MFA
-codes or sending repeated login attempts.
+**Bills and statements**
+
+| Tool | What it returns |
+| --- | --- |
+| `list_credit_card_statements` | Credit accounts with a statement, soonest due first, with amount due, minimum payment, and anything past due. |
+| `list_upcoming_bills` | Scheduled bills, subscriptions, and transfers due in a date range, soonest first. Omitting `from` returns everything scheduled, including past due dates. |
+
+**Transactions**
+
+| Tool | What it returns |
+| --- | --- |
+| `list_transactions` | Cached transactions with optional filters and pagination. |
+| `search_transactions` | Cached transactions matching text, with optional filters. |
+| `get_transaction` | A single transaction by id, syncing on a cache miss. |
+| `list_uncategorized_transactions` | Transactions that look uncategorized. |
+
+**Reference data**
+
+| Tool | What it returns |
+| --- | --- |
+| `list_categories` / `search_categories` | Simplifi categories. |
+| `list_tags` / `search_tags` | Simplifi tags. |
+| `search_merchants` | Merchants (payee names) with frequency counts. |
+| `suggest_categories_for_merchant` | Likely categories for a merchant, based on your own transaction history. |
+
+The server keeps an incremental local cache of accounts, transactions,
+categories, and tags. The first query that needs data performs a full sync;
+later queries use fresh cached data and sync as needed.
+
+Every analysis tool returns the transaction ids behind its numbers, so any
+figure an assistant reports back to you can be checked against the source rows.
 
 ## Requirements
 
 - Node.js 22 or newer
 - npm
-- A local Quicken Simplifi account and the account values required in `.env`
+- A Quicken Simplifi account
 
 ## Setup
 
-Install dependencies:
+### 1. Install and configure
 
 ```bash
 npm install
-```
-
-Create the local configuration:
-
-```bash
 cp .env.example .env
 ```
 
-On PowerShell:
+On PowerShell, use `Copy-Item .env.example .env`.
 
-```powershell
-Copy-Item .env.example .env
-```
+### 2. Fill in `.env`
 
-At minimum, set these values in `.env`:
+Three values are yours and must be set:
 
-- `SIMPLIFI_EMAIL`
-- `SIMPLIFI_PASSWORD`
-- `SIMPLIFI_DATASET_ID`
-- `SIMPLIFI_THREAT_METRIX_SESSION_ID` (recommended and required by the current
-  Simplifi authorization flow)
+| Variable | Where it comes from |
+| --- | --- |
+| `SIMPLIFI_EMAIL` | Your Simplifi login email |
+| `SIMPLIFI_PASSWORD` | Your Simplifi password |
+| `SIMPLIFI_DATASET_ID` | See below — it is not shown anywhere in the Simplifi UI |
 
-Complete the one-time interactive login:
+`SIMPLIFI_CLIENT_ID` and `SIMPLIFI_CLIENT_SECRET` are the Simplifi web
+application's own public client credentials and are already filled in. They are
+not personal to you.
+
+`SIMPLIFI_THREAT_METRIX_SESSION_ID` is **optional**. If you leave it empty the
+server generates a random session id per login, which is usually fine. Set it
+only if authentication fails in a way that suggests device fingerprinting is
+being rejected.
+
+#### Finding your `SIMPLIFI_DATASET_ID`
+
+Simplifi identifies your household's dataset with a header on every API call,
+and does not display it in the UI. To read it off a live session:
+
+1. Sign in to <https://simplifi.quicken.com> in a desktop browser.
+2. Open developer tools (`F12`) and select the **Network** tab.
+3. Reload the page, then click any request to `services.quicken.com`.
+4. In **Request Headers**, find `qcs-dataset-id`. Its value — a long number —
+   is your dataset id.
+
+Paste it into `.env` as `SIMPLIFI_DATASET_ID`.
+
+### 3. Authenticate once, in a terminal
 
 ```bash
 npm run auth
 ```
 
-Build the server:
+If Simplifi asks for MFA, enter the code at this prompt. The command stores
+access and refresh tokens in the local cache.
+
+This is the only command that can log in. The MCP server uses stored tokens
+only — it never falls back to a password login and never prompts through stdio,
+so an unattended sync can't trigger an MFA request or a login attempt. If a
+token expires or is revoked, tools return an error telling you to run
+`npm run auth` again.
+
+### 4. Build
 
 ```bash
 npm run build
 ```
 
-Configure your MCP host to run:
+### 5. Connect your MCP host
 
-```text
-node /absolute/path/to/dist/index.js
+The server runs as a local subprocess. Use an **absolute path** to
+`dist/index.js` — relative paths will not resolve, because your MCP host does
+not start in this directory.
+
+**Claude Desktop** — edit `claude_desktop_config.json`
+(macOS: `~/Library/Application Support/Claude/`,
+Windows: `%APPDATA%\Claude\`):
+
+```json
+{
+  "mcpServers": {
+    "simplifi": {
+      "command": "node",
+      "args": ["/absolute/path/to/simplifi-local-readonly-mcp/dist/index.js"]
+    }
+  }
+}
 ```
 
-The host-specific part is only the executable path and arguments. No URL,
-browser redirect, or server-side OAuth configuration is needed.
+**Codex** — add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.simplifi]
+command = "node"
+args = ["/absolute/path/to/simplifi-local-readonly-mcp/dist/index.js"]
+```
+
+Restart the host. No URL, browser redirect, or server-side OAuth configuration
+is involved.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Tools report expired or revoked credentials | Run `npm run auth` again in a terminal. The server cannot re-authenticate on its own by design. |
+| `Cannot sign in while another process holds the cache` | One process at a time may write the cache. Quit the MCP host (or the other terminal) and retry. |
+| Authentication fails repeatedly with valid credentials | Confirm `SIMPLIFI_DATASET_ID` is correct. If it still fails, capture a real `SIMPLIFI_THREAT_METRIX_SESSION_ID` the same way you found the dataset id. |
+| Host shows no tools | Check the path in your host config is absolute and points at `dist/index.js`, and that `npm run build` has been run. |
+| Empty or stale results | The first query performs a full sync and can take a while. Most tools accept `refresh: true` to force a re-sync. The exceptions are `spending_by_category`, `monthly_burn`, `recurring_charge_changes`, and `search_merchants`, which read whatever the cache already holds — call a tool that does accept `refresh` first if you need those recomputed against fresh data. |
 
 ## Safety model
 
@@ -158,6 +238,7 @@ includes a local-only institution-name scanner configuration template at
 
 ## License and provenance
 
-This project is based on [krconv/quicken-simplifi-mcp](https://github.com/krconv/quicken-simplifi-mcp)
-and retains its MIT license. The public release should preserve the license and
-attribution.
+This project is based on
+[krconv/quicken-simplifi-mcp](https://github.com/krconv/quicken-simplifi-mcp)
+and is released under the same MIT license, which is retained in full in
+[LICENSE](LICENSE) along with the original copyright attribution.
