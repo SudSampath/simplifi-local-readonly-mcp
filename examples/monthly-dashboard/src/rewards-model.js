@@ -23,6 +23,21 @@ function unitsFor(amountCents, unitsPerDollar) {
   return Math.floor((amountCents * unitsPerDollar) / 100);
 }
 
+function configuredValuation(card) {
+  if (card.valuationRangeCentsPerUnit !== undefined) {
+    const { low, high } = card.valuationRangeCentsPerUnit;
+    if (![low, high].every((value) => Number.isFinite(value) && value >= 0) || low > high) {
+      throw new Error("card.valuationRangeCentsPerUnit requires non-negative low and high values with low <= high.");
+    }
+    return { low, high, label: card.valuationLabel ?? "Configured cents-per-unit range" };
+  }
+  if (card.valuationCentsPerUnit === undefined) return undefined;
+  if (!Number.isFinite(card.valuationCentsPerUnit) || card.valuationCentsPerUnit < 0) {
+    throw new Error("card.valuationCentsPerUnit must be a non-negative number.");
+  }
+  return { low: card.valuationCentsPerUnit, high: card.valuationCentsPerUnit, label: card.valuationLabel ?? "Configured cents-per-unit assumption" };
+}
+
 /**
  * Evaluate one already-classified eligible purchase against deterministic,
  * effective-dated reward rules. Merchant and transaction classification belongs
@@ -41,6 +56,7 @@ export function evaluateRewardPurchase({
   }
 
   const activated = new Set(activatedRuleIds);
+  const evidence = new Set(purchase.evidenceTags ?? []);
   const unavailable = [];
   const matchingRules = rules
     .filter((rule) => rule.cardKey === card.key)
@@ -61,6 +77,11 @@ export function evaluateRewardPurchase({
       unavailable.push({ ruleId: rule.id, reason: "activation-required" });
       return false;
     }
+    const missingEvidence = (rule.requiredEvidenceTags ?? []).filter((tag) => !evidence.has(tag));
+    if (missingEvidence.length > 0) {
+      unavailable.push({ ruleId: rule.id, reason: "evidence-required", missingEvidenceTags: missingEvidence });
+      return false;
+    }
     const priorSpend = priorSpendCentsByRule[rule.id] ?? 0;
     if (rule.capCents !== null && priorSpend >= rule.capCents) {
       unavailable.push({ ruleId: rule.id, reason: "cap-reached" });
@@ -77,6 +98,7 @@ export function evaluateRewardPurchase({
       estimatedUnits: 0,
       unavailable,
       appliedRules: [],
+      sources: [],
       warnings: [`No active reward rule matched ${purchase.rewardCategory}.`],
     };
   }
@@ -110,6 +132,7 @@ export function evaluateRewardPurchase({
   }
 
   const estimatedUnits = appliedRules.reduce((sum, rule) => sum + rule.estimatedUnits, 0);
+  const valuation = configuredValuation(card);
   const warnings = [...new Set(appliedRules
     .map((applied) => candidates.find((rule) => rule.id === applied.ruleId))
     .map((rule) => rule && verificationWarning(rule, purchase.occurredOn))
@@ -119,11 +142,18 @@ export function evaluateRewardPurchase({
     cardKey: card.key,
     rewardCurrency: card.rewardCurrency,
     estimatedUnits,
-    ...(card.valuationCentsPerUnit === undefined
-      ? {}
-      : { estimatedValueCents: Math.round(estimatedUnits * card.valuationCentsPerUnit) }),
+    ...(valuation === undefined ? {} : {
+      estimatedLowValueCents: Math.round(estimatedUnits * valuation.low),
+      estimatedHighValueCents: Math.round(estimatedUnits * valuation.high),
+      ...(valuation.low === valuation.high ? { estimatedValueCents: Math.round(estimatedUnits * valuation.low) } : {}),
+      valuationAssumption: valuation,
+    }),
     unavailable,
     appliedRules,
+    sources: [...new Map(appliedRules.map((applied) => {
+      const rule = candidates.find((candidate) => candidate.id === applied.ruleId);
+      return [rule?.id, { ruleId: rule?.id, sourceUrl: rule?.sourceUrl ?? null, verifiedThrough: rule?.verifiedThrough ?? null }];
+    })).values()],
     warnings,
   };
 }
@@ -133,6 +163,10 @@ export function summarizeRewardResults(results) {
   for (const result of results) {
     const current = currencies.get(result.rewardCurrency) ?? { rewardCurrency: result.rewardCurrency, estimatedUnits: 0 };
     current.estimatedUnits += result.estimatedUnits;
+    if (result.estimatedLowValueCents !== undefined && result.estimatedHighValueCents !== undefined) {
+      current.estimatedLowValueCents = (current.estimatedLowValueCents ?? 0) + result.estimatedLowValueCents;
+      current.estimatedHighValueCents = (current.estimatedHighValueCents ?? 0) + result.estimatedHighValueCents;
+    }
     if (result.estimatedValueCents !== undefined) {
       current.estimatedValueCents = (current.estimatedValueCents ?? 0) + result.estimatedValueCents;
     }

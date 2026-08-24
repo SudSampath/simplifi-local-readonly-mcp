@@ -24,6 +24,8 @@ export function aRewardRule(overrides = {}) {
     requiresActivation: false,
     capCents: null,
     verifiedThrough: "2026-12-31",
+    sourceUrl: "https://example.invalid/synthetic-reward-terms",
+    requiredEvidenceTags: [],
     ...overrides,
   };
 }
@@ -37,6 +39,7 @@ export function aRewardPurchase(overrides = {}) {
     rewardCategory: "general",
     confidence: "medium",
     eligible: true,
+    evidenceTags: [],
     ...overrides,
   };
 }

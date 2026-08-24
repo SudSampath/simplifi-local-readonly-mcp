@@ -66,6 +66,26 @@ test("Given prior completed months, when a historical month is selected, then mo
   });
 });
 
+test("Given a household point-value range, when history is rolled up, then value and effective return remain low-to-high ranges", () => {
+  const result = estimateRewardHistory({
+    cards: [aRewardCard({ valuationRangeCentsPerUnit: { low: 1.5, high: 2 }, valuationLabel: "Synthetic range" })],
+    purchases: [aRewardPurchase({ amountCents: 10_000 })],
+    rules: [aRewardRule({ unitsPerDollar: 2 })],
+    completedThrough: "2026-01",
+  });
+
+  assert.equal(result.selected.cards[0].estimatedLowValueCents, 300);
+  assert.equal(result.selected.cards[0].estimatedHighValueCents, 400);
+  assert.equal(result.selected.cards[0].effectiveReturnLowPercent, 3);
+  assert.equal(result.selected.cards[0].effectiveReturnHighPercent, 4);
+  assert.equal("estimatedValueCents" in result.selected.cards[0], false);
+  assert.deepEqual(result.selected.cards[0].valuationAssumption, {
+    lowCentsPerUnit: 1.5,
+    highCentsPerUnit: 2,
+    label: "Synthetic range",
+  });
+});
+
 test("Given no selected month, when history is estimated, then the latest completed month is the default", () => {
   const result = estimateRewardHistory({
     cards: [aRewardCard()],
