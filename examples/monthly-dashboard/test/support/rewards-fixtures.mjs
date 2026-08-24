@@ -8,6 +8,7 @@ export function aRewardCard(overrides = {}) {
     key: "card-synthetic-travel",
     displayName: "Synthetic Travel Card",
     rewardCurrency: "synthetic-points",
+    ownerKey: "owner-synthetic-a",
     ...overrides,
   };
 }
