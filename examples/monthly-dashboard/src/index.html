@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A synthetic, privacy-safe monthly financial dashboard example.">
+    <title>Monthly financial snapshot</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Synthetic example · summary data only</p>
+          <h1>Monthly financial snapshot</h1>
+        </div>
+        <label>Browse report
+          <select id="month-select" aria-label="Choose a monthly report"></select>
+        </label>
+      </header>
+
+      <section class="hero">
+        <div><p class="eyebrow">Selected month</p><h2 id="period"></h2><small id="as-of"></small></div>
+        <p>This template demonstrates historical browsing and trend calculations without including raw transactions or account details.</p>
+      </section>
+
+      <section class="cards" aria-label="Monthly summary">
+        <article><span>Income</span><strong id="income"></strong><small><b id="income-change"></b> from prior month</small></article>
+        <article><span>Outflow</span><strong id="outflow"></strong><small><b id="outflow-change"></b> from prior month</small></article>
+        <article><span>Income less outflow</span><strong id="net"></strong><small>Selected month</small></article>
+      </section>
+
+      <section class="trend-panel">
+        <div class="section-heading"><p class="eyebrow">Change over time</p><h2>Year-to-date trend</h2><p>Each pair compares income with outflow. The right edge shows monthly net.</p></div>
+        <div class="ytd">
+          <div><span>YTD income</span><strong id="ytd-income"></strong></div>
+          <div><span>YTD outflow</span><strong id="ytd-outflow"></strong></div>
+          <div><span>YTD net</span><strong id="ytd-net"></strong></div>
+        </div>
+        <div id="trend-rows" class="trend-rows"></div>
+        <div class="legend"><span><i class="income"></i>Income</span><span><i class="outflow"></i>Outflow</span></div>
+      </section>
+
+      <footer>Invented values for demonstration · No network requests · No household data</footer>
+    </main>
+    <script src="snapshot.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

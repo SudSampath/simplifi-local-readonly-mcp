@@ -239,6 +239,18 @@ The repository uses Given/When/Then test names and expects every acceptance
 criterion to have an executable assertion. Run `npm run setup-hooks` once to
 enable the matching pre-commit checks locally.
 
+## Monthly dashboard example
+
+[`examples/monthly-dashboard`](examples/monthly-dashboard) is a standalone,
+synthetic example of a privacy-safe monthly financial report. It demonstrates a
+latest-month default, historical month browsing, month-over-month comparisons,
+year-to-date totals, a rolling twelve-month build boundary, and validation that
+rejects raw transaction or account data.
+
+The example deliberately defines a summary-data contract rather than connecting
+to Simplifi. Keep the source adapter and generated household snapshot private;
+only the static dashboard code and invented fixture belong in a public repo.
+
 ## Privacy when contributing
 
 Never commit `.env`, SQLite caches, exports, screenshots, transaction samples,

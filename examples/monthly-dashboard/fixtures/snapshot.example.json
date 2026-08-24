@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-03T16:00:00.000Z",
+  "containsRawTransactions": false,
+  "currency": "USD",
+  "months": [
+    { "month": "2026-01", "complete": true, "incomeCents": 820000, "outflowCents": 610000, "essentialCents": 390000, "discretionaryCents": 220000 },
+    { "month": "2026-02", "complete": true, "incomeCents": 820000, "outflowCents": 635000, "essentialCents": 400000, "discretionaryCents": 235000 },
+    { "month": "2026-03", "complete": true, "incomeCents": 850000, "outflowCents": 680000, "essentialCents": 410000, "discretionaryCents": 270000 },
+    { "month": "2026-04", "complete": true, "incomeCents": 830000, "outflowCents": 620000, "essentialCents": 395000, "discretionaryCents": 225000 },
+    { "month": "2026-05", "complete": true, "incomeCents": 900000, "outflowCents": 705000, "essentialCents": 420000, "discretionaryCents": 285000 },
+    { "month": "2026-06", "complete": true, "incomeCents": 840000, "outflowCents": 650000, "essentialCents": 405000, "discretionaryCents": 245000 },
+    { "month": "2026-07", "complete": true, "incomeCents": 860000, "outflowCents": 640000, "essentialCents": 400000, "discretionaryCents": 240000 },
+    { "month": "2026-08", "complete": true, "incomeCents": 880000, "outflowCents": 625000, "essentialCents": 398000, "discretionaryCents": 227000 }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "synthetic-monthly-dashboard-example",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "report:build": "node scripts/build-report.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

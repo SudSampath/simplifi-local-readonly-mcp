@@ -36,3 +36,8 @@ scratch/
 # Household-specific scanner configuration. Institution names live here, on the
 # operator's machine only, never in the repo. See scripts/secret-scan.ts.
 .secret-scan.local.json
+
+# The hosted household dashboard contains private models, generated summaries,
+# and family assets. A synthetic, publishable example lives under
+# examples/monthly-dashboard instead.
+site/
