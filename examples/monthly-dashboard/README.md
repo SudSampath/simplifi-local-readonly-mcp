@@ -25,6 +25,12 @@ This uses Node's existing test runner rather than adding a second Cucumber
 runtime. The behavior contract is the important part: each acceptance outcome
 must have an assertion, and a failed test should name the behavior that broke.
 
+Reward rules are effective-dated, deterministic configuration. The evaluator
+supports base and bonus rates, activation requirements, spending caps, explicit
+valuations, and verification warnings without fetching issuer websites during a
+build. Different reward currencies stay separate rather than being combined
+into a misleading household points total.
+
 ## Run it
 
 Node.js 22 or newer is the only requirement.
