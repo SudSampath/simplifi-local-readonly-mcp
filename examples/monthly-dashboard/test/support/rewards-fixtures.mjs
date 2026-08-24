@@ -57,3 +57,31 @@ export function aRewardStatement(overrides = {}) {
     ...overrides,
   };
 }
+
+export function aCardBenefit(overrides = {}) {
+  return {
+    key: "benefit-synthetic-streaming",
+    cardKey: "card-synthetic-travel",
+    name: "Synthetic streaming credit",
+    cadence: "monthly",
+    capCents: 1_000,
+    effectiveFrom: "2026-01-01",
+    effectiveTo: null,
+    evidenceTag: "benefit:synthetic-streaming",
+    sourceUrl: "https://example.invalid/synthetic-benefits",
+    verifiedThrough: "2026-12-31",
+    instructions: "Use the eligible synthetic subscription.",
+    includeInTotals: true,
+    ...overrides,
+  };
+}
+
+export function aBenefitEvidence(overrides = {}) {
+  return {
+    cardKey: "card-synthetic-travel",
+    occurredOn: "2026-02-10",
+    valueCents: 1_200,
+    tags: ["benefit:synthetic-streaming"],
+    ...overrides,
+  };
+}
