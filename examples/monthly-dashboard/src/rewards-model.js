@@ -174,3 +174,38 @@ export function summarizeRewardResults(results) {
   }
   return [...currencies.values()].sort((left, right) => left.rewardCurrency.localeCompare(right.rewardCurrency));
 }
+
+/**
+ * Summarize current published card fees without implying that a fee was charged
+ * in the selected report month. Card agreements, waivers, and observed private
+ * transactions remain the responsibility of the private adapter.
+ */
+export function summarizeConfiguredAnnualFees(cards, { asOf }) {
+  assertDay(asOf, "asOf");
+  const rows = cards.map((card) => {
+    if (!Number.isSafeInteger(card.annualFeeCents) || card.annualFeeCents < 0) {
+      throw new Error(`${card.key}.annualFeeCents must be a non-negative integer.`);
+    }
+    if (typeof card.annualFeeSourceUrl !== "string" || !card.annualFeeSourceUrl.startsWith("https://")) {
+      throw new Error(`${card.key}.annualFeeSourceUrl must be an HTTPS issuer or program URL.`);
+    }
+    assertDay(card.annualFeeVerifiedThrough, `${card.key}.annualFeeVerifiedThrough`);
+    return {
+      cardKey: card.key,
+      annualFeeCents: card.annualFeeCents,
+      basis: "current-standard",
+      sourceUrl: card.annualFeeSourceUrl,
+      verifiedThrough: card.annualFeeVerifiedThrough,
+      ...(card.annualFeeCaveat ? { caveat: card.annualFeeCaveat } : {}),
+      warnings: card.annualFeeVerifiedThrough < asOf
+        ? [`Annual fee source is stale after ${card.annualFeeVerifiedThrough}.`]
+        : [],
+    };
+  });
+  return {
+    asOf,
+    basis: "current-standard",
+    totalAnnualFeeCents: rows.reduce((sum, card) => sum + card.annualFeeCents, 0),
+    cards: rows,
+  };
+}

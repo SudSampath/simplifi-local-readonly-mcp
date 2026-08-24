@@ -53,6 +53,23 @@ together merely because their unit names both contain “points.” Actual issue
 earnings and balances remain manual reconciliation inputs; transaction-derived
 estimates do not imply issuer account access.
 
+Current standard annual fees are configured separately from monthly rewards and
+must include integer cents, an official HTTPS source, and a `verifiedThrough`
+date. The reusable model keeps a $0 fee explicit, totals each configured card
+once, and warns when research is stale. A published product fee is not evidence
+that the household paid it in the selected month: legacy agreements, waivers,
+retention offers, authorized-user fees, and membership requirements belong in
+private configuration or a source caveat.
+
+```js
+{
+  annualFeeCents: 9500,
+  annualFeeSourceUrl: "https://example.invalid/synthetic-card-fees",
+  annualFeeVerifiedThrough: "2026-12-31",
+  annualFeeCaveat: "A separate synthetic membership is excluded.",
+}
+```
+
 ## Run it
 
 Node.js 22 or newer is the only requirement.

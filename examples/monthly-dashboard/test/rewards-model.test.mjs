@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { evaluateRewardPurchase, summarizeRewardResults } from "../src/rewards-model.js";
+import { evaluateRewardPurchase, summarizeConfiguredAnnualFees, summarizeRewardResults } from "../src/rewards-model.js";
 import { aRewardCard, aRewardPurchase, aRewardRule } from "./support/rewards-fixtures.mjs";
 
 test("Given overlapping base and bonus rules, when an eligible purchase is evaluated, then the highest active rate is applied once", () => {
@@ -135,4 +135,40 @@ test("Given results in unlike reward currencies, when totals are summarized, the
     { rewardCurrency: "synthetic-points", estimatedUnits: 40 },
   ]);
   assert.equal("endingBalanceUnits" in points, false);
+});
+
+test("Given source-backed annual fees including a no-fee card, when fees are summarized, then zero remains explicit and each card contributes once", () => {
+  const summary = summarizeConfiguredAnnualFees([
+    aRewardCard(),
+    aRewardCard({
+      key: "card-synthetic-no-fee",
+      annualFeeCents: 0,
+      annualFeeCaveat: "A separate synthetic membership is excluded.",
+    }),
+  ], { asOf: "2026-08-24" });
+
+  assert.equal(summary.basis, "current-standard");
+  assert.equal(summary.totalAnnualFeeCents, 9_500);
+  assert.equal(summary.cards[1].annualFeeCents, 0);
+  assert.equal(summary.cards[1].caveat, "A separate synthetic membership is excluded.");
+  assert.ok(summary.cards.every((card) => card.warnings.length === 0));
+});
+
+test("Given a stale fee source, when fees are summarized, then the report warns instead of silently treating it as current", () => {
+  const summary = summarizeConfiguredAnnualFees([
+    aRewardCard({ annualFeeVerifiedThrough: "2026-06-30" }),
+  ], { asOf: "2026-08-24" });
+
+  assert.deepEqual(summary.cards[0].warnings, ["Annual fee source is stale after 2026-06-30."]);
+});
+
+test("Given an invalid fee or non-HTTPS source, when fees are summarized, then unsafe configuration is rejected", () => {
+  assert.throws(
+    () => summarizeConfiguredAnnualFees([aRewardCard({ annualFeeCents: -1 })], { asOf: "2026-08-24" }),
+    /non-negative integer/,
+  );
+  assert.throws(
+    () => summarizeConfiguredAnnualFees([aRewardCard({ annualFeeSourceUrl: "http://example.invalid/fee" })], { asOf: "2026-08-24" }),
+    /HTTPS issuer or program URL/,
+  );
 });
