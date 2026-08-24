@@ -6,6 +6,7 @@ import { validateSnapshot } from "../scripts/validate-snapshot.mjs";
 const safeSnapshot = () => ({
   schemaVersion: 1,
   containsRawTransactions: false,
+  containsPrivateRewardData: false,
   months: [{
     month: "2026-01",
     complete: true,
@@ -23,6 +24,11 @@ test("Given summary-only data, when it is validated, then publication is allowed
 test("Given a raw transaction field, when it is validated, then publication is rejected", () => {
   const snapshot = { ...safeSnapshot(), transactions: [] };
   assert.throws(() => validateSnapshot(snapshot), /transactions is forbidden/);
+});
+
+test("Given issuer ledger data, when a public snapshot is validated, then publication is rejected", () => {
+  const snapshot = { ...safeSnapshot(), ledgerEntries: [{ endingBalanceUnits: 24_000 }] };
+  assert.throws(() => validateSnapshot(snapshot), /ledgerEntries is forbidden/);
 });
 
 test("Given an incomplete month, when it is validated, then publication is rejected", () => {

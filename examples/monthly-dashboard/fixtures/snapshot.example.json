@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "generatedAt": "2026-09-03T16:00:00.000Z",
   "containsRawTransactions": false,
+  "containsPrivateRewardData": false,
   "currency": "USD",
   "months": [
     { "month": "2026-01", "complete": true, "incomeCents": 820000, "outflowCents": 610000, "essentialCents": 390000, "discretionaryCents": 220000 },

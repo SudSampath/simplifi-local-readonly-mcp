@@ -2,7 +2,11 @@ const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const FORBIDDEN_KEYS = new Set([
   "accountId",
   "accountNumber",
+  "benefitUsage",
   "credential",
+  "endingBalanceUnits",
+  "issuerEarnedUnits",
+  "ledgerEntries",
   "memo",
   "payee",
   "routingNumber",
@@ -10,6 +14,7 @@ const FORBIDDEN_KEYS = new Set([
   "token",
   "transactionId",
   "transactions",
+  "walletKey",
 ]);
 
 function walk(value, path = "snapshot") {
@@ -31,6 +36,9 @@ export function validateSnapshot(snapshot) {
   if (snapshot?.schemaVersion !== 1) throw new Error("Unsupported snapshot schema version.");
   if (snapshot?.containsRawTransactions !== false) {
     throw new Error("containsRawTransactions must be explicitly false.");
+  }
+  if (snapshot?.containsPrivateRewardData !== false) {
+    throw new Error("containsPrivateRewardData must be explicitly false.");
   }
   if (!Array.isArray(snapshot.months) || snapshot.months.length === 0) {
     throw new Error("Snapshot must contain at least one completed month.");
