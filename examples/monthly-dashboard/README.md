@@ -31,6 +31,28 @@ valuations, and verification warnings without fetching issuer websites during a
 build. Different reward currencies stay separate rather than being combined
 into a misleading household points total.
 
+For a source-backed implementation, store an official issuer URL and a
+`verifiedThrough` date on every rule. Use `requiredEvidenceTags` for bonuses that
+depend on a booking portal, named merchant, or other fact that a broad spending
+category cannot prove. Private adapters may derive tags such as
+`portal:synthetic-travel`, but neither payee text nor raw transactions belong in
+the generated public summary.
+
+Cards can use either a fixed `valuationCentsPerUnit` or a configurable range:
+
+```js
+{
+  valuationRangeCentsPerUnit: { low: 1.5, high: 2 },
+  valuationLabel: "Household redemption assumption",
+}
+```
+
+The report keeps low and high values separate. Cash-like currencies should use
+a fixed issuer-backed value, and unlike point currencies should never be added
+together merely because their unit names both contain “points.” Actual issuer
+earnings and balances remain manual reconciliation inputs; transaction-derived
+estimates do not imply issuer account access.
+
 ## Run it
 
 Node.js 22 or newer is the only requirement.

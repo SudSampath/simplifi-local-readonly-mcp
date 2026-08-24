@@ -28,15 +28,22 @@ function groupRows(rows, keyFor, describe) {
     const eligibleSpendCents = sum(componentRows, "eligibleSpendCents");
     const estimatedUnits = sum(componentRows, "estimatedUnits");
     const valuationKeys = new Set(componentRows.map((row) => JSON.stringify(row.valuationAssumption)));
-    const consistentlyValued = componentRows.every((row) => row.estimatedValueCents !== undefined) && valuationKeys.size === 1;
-    const estimatedValueCents = consistentlyValued ? sum(componentRows, "estimatedValueCents") : undefined;
+    const consistentlyValued = componentRows.every((row) => row.estimatedLowValueCents !== undefined && row.estimatedHighValueCents !== undefined) && valuationKeys.size === 1;
+    const estimatedLowValueCents = consistentlyValued ? sum(componentRows, "estimatedLowValueCents") : undefined;
+    const estimatedHighValueCents = consistentlyValued ? sum(componentRows, "estimatedHighValueCents") : undefined;
     return {
       ...identity,
       eligibleSpendCents,
       estimatedUnits,
-      ...(estimatedValueCents === undefined ? {} : {
-        estimatedValueCents,
-        effectiveReturnPercent: eligibleSpendCents === 0 ? null : (estimatedValueCents / eligibleSpendCents) * 100,
+      ...(estimatedLowValueCents === undefined || estimatedHighValueCents === undefined ? {} : {
+        estimatedLowValueCents,
+        estimatedHighValueCents,
+        effectiveReturnLowPercent: eligibleSpendCents === 0 ? null : (estimatedLowValueCents / eligibleSpendCents) * 100,
+        effectiveReturnHighPercent: eligibleSpendCents === 0 ? null : (estimatedHighValueCents / eligibleSpendCents) * 100,
+        ...(estimatedLowValueCents === estimatedHighValueCents ? {
+          estimatedValueCents: estimatedLowValueCents,
+          effectiveReturnPercent: eligibleSpendCents === 0 ? null : (estimatedLowValueCents / eligibleSpendCents) * 100,
+        } : {}),
         valuationAssumption: componentRows[0].valuationAssumption,
       }),
     };
@@ -128,9 +135,14 @@ export function estimateRewardHistory({
     if (!card) throw new Error(`Unknown reward card key ${purchase.cardKey}.`);
     const result = evaluateRewardPurchase({ card, purchase, rules, activatedRuleIds, priorSpendCentsByRule });
     const programKey = card.poolKey ? `pool:${card.poolKey}` : `owner:${card.ownerKey ?? "unassigned"}`;
-    const valuationAssumption = card.valuationCentsPerUnit === undefined ? undefined : {
-      centsPerUnit: card.valuationCentsPerUnit,
-      label: card.valuationLabel ?? "Configured cents-per-unit assumption",
+    const configuredRange = card.valuationRangeCentsPerUnit ?? (card.valuationCentsPerUnit === undefined ? undefined : {
+      low: card.valuationCentsPerUnit,
+      high: card.valuationCentsPerUnit,
+    });
+    const valuationAssumption = configuredRange === undefined ? undefined : {
+      lowCentsPerUnit: configuredRange.low,
+      highCentsPerUnit: configuredRange.high,
+      label: card.valuationLabel ?? (configuredRange.low === configuredRange.high ? "Configured cents-per-unit assumption" : "Configured cents-per-unit range"),
     };
     const appliedSpendCents = sum(result.appliedRules, "amountCents");
     const components = [
@@ -157,7 +169,11 @@ export function estimateRewardHistory({
         eligibleSpendCents: applied.amountCents,
         estimatedUnits: applied.estimatedUnits,
         ...(valuationAssumption === undefined ? {} : {
-          estimatedValueCents: Math.round(applied.estimatedUnits * valuationAssumption.centsPerUnit),
+          estimatedLowValueCents: Math.round(applied.estimatedUnits * valuationAssumption.lowCentsPerUnit),
+          estimatedHighValueCents: Math.round(applied.estimatedUnits * valuationAssumption.highCentsPerUnit),
+          ...(valuationAssumption.lowCentsPerUnit === valuationAssumption.highCentsPerUnit ? {
+            estimatedValueCents: Math.round(applied.estimatedUnits * valuationAssumption.lowCentsPerUnit),
+          } : {}),
           valuationAssumption,
         }),
       });

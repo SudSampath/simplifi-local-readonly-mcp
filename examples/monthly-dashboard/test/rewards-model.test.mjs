@@ -81,6 +81,42 @@ test("Given stale and unverified rule metadata, when a purchase is evaluated, th
   assert.deepEqual(unverified.warnings, ["rule-unverified is unverified."]);
 });
 
+test("Given a portal-only bonus, when portal evidence is absent, then the base rule applies and the missing evidence is explicit", () => {
+  const rules = [
+    aRewardRule({ id: "rule-base" }),
+    aRewardRule({ id: "rule-portal", category: "travel", unitsPerDollar: 8, requiredEvidenceTags: ["portal:synthetic-travel"] }),
+  ];
+  const withoutEvidence = evaluateRewardPurchase({
+    card: aRewardCard(),
+    purchase: aRewardPurchase({ rewardCategory: "travel" }),
+    rules,
+  });
+  const withEvidence = evaluateRewardPurchase({
+    card: aRewardCard(),
+    purchase: aRewardPurchase({ rewardCategory: "travel", evidenceTags: ["portal:synthetic-travel"] }),
+    rules,
+  });
+
+  assert.equal(withoutEvidence.appliedRules[0].ruleId, "rule-base");
+  assert.deepEqual(withoutEvidence.unavailable, [{ ruleId: "rule-portal", reason: "evidence-required", missingEvidenceTags: ["portal:synthetic-travel"] }]);
+  assert.equal(withEvidence.appliedRules[0].ruleId, "rule-portal");
+  assert.deepEqual(withEvidence.sources, [{ ruleId: "rule-portal", sourceUrl: "https://example.invalid/synthetic-reward-terms", verifiedThrough: "2026-12-31" }]);
+});
+
+test("Given a configurable redemption range, when points are valued, then low and high values remain distinct", () => {
+  const result = evaluateRewardPurchase({
+    card: aRewardCard({ valuationRangeCentsPerUnit: { low: 1.5, high: 2 }, valuationLabel: "Synthetic range" }),
+    purchase: aRewardPurchase({ amountCents: 10_000 }),
+    rules: [aRewardRule({ unitsPerDollar: 2 })],
+  });
+
+  assert.equal(result.estimatedUnits, 200);
+  assert.equal(result.estimatedLowValueCents, 300);
+  assert.equal(result.estimatedHighValueCents, 400);
+  assert.equal("estimatedValueCents" in result, false);
+  assert.deepEqual(result.valuationAssumption, { low: 1.5, high: 2, label: "Synthetic range" });
+});
+
 test("Given results in unlike reward currencies, when totals are summarized, then currencies remain separate and values require explicit valuations", () => {
   const points = evaluateRewardPurchase({
     card: aRewardCard(),
@@ -95,7 +131,7 @@ test("Given results in unlike reward currencies, when totals are summarized, the
   const summary = summarizeRewardResults([points, cash]);
 
   assert.deepEqual(summary, [
-    { rewardCurrency: "cash-back-cents", estimatedUnits: 80, estimatedValueCents: 80 },
+    { rewardCurrency: "cash-back-cents", estimatedUnits: 80, estimatedLowValueCents: 80, estimatedHighValueCents: 80, estimatedValueCents: 80 },
     { rewardCurrency: "synthetic-points", estimatedUnits: 40 },
   ]);
   assert.equal("endingBalanceUnits" in points, false);
