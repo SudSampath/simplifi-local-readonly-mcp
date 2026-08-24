@@ -18,9 +18,11 @@ export function aRewardRule(overrides = {}) {
     cardKey: "card-synthetic-travel",
     effectiveFrom: "2026-01-01",
     effectiveTo: null,
-    multiplier: 1,
+    unitsPerDollar: 1,
     category: "all-eligible-purchases",
     requiresActivation: false,
+    capCents: null,
+    verifiedThrough: "2026-12-31",
     ...overrides,
   };
 }

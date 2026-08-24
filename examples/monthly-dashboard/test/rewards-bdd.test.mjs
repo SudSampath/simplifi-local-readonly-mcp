@@ -34,14 +34,14 @@ test("Given rewards behavior needs test data, when fixture builders are used, th
   const fixture = {
     card: aRewardCard({ displayName: "Synthetic Grocery Card" }),
     purchase: aRewardPurchase({ amountCents: 5_000 }),
-    rule: aRewardRule({ multiplier: 3 }),
+    rule: aRewardRule({ unitsPerDollar: 3 }),
     statement: aRewardStatement({ issuerEarnedUnits: 15_000 }),
   };
 
   assert.match(JSON.stringify(fixture), /synthetic/i);
   assert.equal(fixture.card.displayName, "Synthetic Grocery Card");
   assert.equal(fixture.purchase.amountCents, 5_000);
-  assert.equal(fixture.rule.multiplier, 3);
+  assert.equal(fixture.rule.unitsPerDollar, 3);
   assert.equal(fixture.statement.issuerEarnedUnits, 15_000);
 });
 
