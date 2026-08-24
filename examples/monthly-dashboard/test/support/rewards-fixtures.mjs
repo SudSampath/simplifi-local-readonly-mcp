@@ -9,6 +9,9 @@ export function aRewardCard(overrides = {}) {
     displayName: "Synthetic Travel Card",
     rewardCurrency: "synthetic-points",
     ownerKey: "owner-synthetic-a",
+    annualFeeCents: 9_500,
+    annualFeeSourceUrl: "https://example.invalid/synthetic-card-fees",
+    annualFeeVerifiedThrough: "2026-12-31",
     ...overrides,
   };
 }
