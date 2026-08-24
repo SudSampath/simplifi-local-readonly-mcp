@@ -12,6 +12,19 @@ report without publishing household data. It includes:
 
 All included values and labels are invented.
 
+## Behavior-driven tests
+
+The example treats its Given/When/Then acceptance criteria as executable
+scenarios. Test titles describe the precondition, action, and observable result,
+and a contract test prevents new scenarios from drifting to implementation-only
+names. Shared rewards fixture builders live under `test/support/`; their values
+are visibly synthetic and their serialized shapes exclude private account and
+transaction fields.
+
+This uses Node's existing test runner rather than adding a second Cucumber
+runtime. The behavior contract is the important part: each acceptance outcome
+must have an assertion, and a failed test should name the behavior that broke.
+
 ## Run it
 
 Node.js 22 or newer is the only requirement.
