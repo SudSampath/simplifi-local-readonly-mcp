@@ -70,6 +70,38 @@ private configuration or a source caveat.
 }
 ```
 
+## Retrospective card-benefit audits
+
+`src/benefit-audit.js` adds a look-back model for recurring credits, cash-like
+allowances, certificates, and manual-only perks. It is intentionally not a
+checkout recommender. For a selected month it reports:
+
+- confirmed value from a private manual override;
+- likely value supported by summary-safe evidence tags;
+- open value that still needs confirmation; and
+- expired value that remains unconfirmed—not a claim that it was definitely
+  unused.
+
+The private adapter is responsible for translating local transactions into
+minimal evidence records. Raw merchants, account ids, transaction ids, and
+memos must never enter the public snapshot:
+
+```js
+{
+  cardKey: "card-synthetic-travel",
+  occurredOn: "2026-02-10",
+  valueCents: 1200,
+  tags: ["benefit:synthetic-streaming"],
+}
+```
+
+Calendar-month, quarter, half-year, and calendar-year credits can participate
+in YTD availability. Anniversary-year and multi-year benefits remain visible
+but are excluded from countable totals until the private configuration supplies
+their real eligibility dates. Every definition carries an official source URL,
+effective dates, a verification date, reset cadence, instructions, and an
+explicit choice about whether its face value belongs in totals.
+
 ## Run it
 
 Node.js 22 or newer is the only requirement.
